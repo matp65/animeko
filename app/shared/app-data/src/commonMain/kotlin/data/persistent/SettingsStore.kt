@@ -19,6 +19,7 @@ import kotlinx.serialization.builtins.nullable
 import me.him188.ani.app.data.models.danmaku.DanmakuRegexFilter
 import me.him188.ani.app.data.models.user.SelfInfo
 import me.him188.ani.app.data.repository.SavedWindowState
+import me.him188.ani.app.data.repository.br.BangumiRecorderSave
 import me.him188.ani.app.data.repository.media.MediaSourceSaves
 import me.him188.ani.app.data.repository.media.MediaSourceSubscriptionsSaveData
 import me.him188.ani.app.data.repository.media.MikanIndexes
@@ -128,6 +129,14 @@ abstract class PlatformDataStoreManager {
         )
     }
 
+    val bangumiRecorderStore by lazy {
+        DataStoreFactory.create(
+            serializer = BangumiRecorderSave.serializer().asDataStoreSerializer({ BangumiRecorderSave.Initial }),
+            produceFile = { resolveDataStoreFile("bangumiRecorder") },
+            corruptionHandler = ReplaceFileCorruptionHandler { BangumiRecorderSave.Initial },
+        )
+    }
+
     val selfInfoStore by lazy {
         DataStoreFactory.create(
             serializer = SelfInfo.serializer().nullable.asDataStoreSerializer({ null }),
@@ -150,4 +159,3 @@ abstract class PlatformDataStoreManager {
     protected val replaceFileCorruptionHandlerForPreferences: ReplaceFileCorruptionHandler<Preferences> =
         ReplaceFileCorruptionHandler { mutablePreferencesOf() }
 }
-

@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flatMapMerge
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.retry
@@ -208,36 +209,43 @@ class SubjectCollectionRepositoryImpl(
     private val nsfwModeSettingsFlow: Flow<NsfwMode>,
     private val getCurrentDate: () -> PackedDate = { PackedDate.now() },
     private val getEpisodeTypeFiltersUseCase: GetEpisodeTypeFiltersUseCase,
+    private val hasBangumiRecorderConnectionFlow: Flow<Boolean> = flowOf(false),
     defaultDispatcher: CoroutineContext = Dispatchers.Default,
     private val cacheExpiry: Duration = 1.hours,
 ) : SubjectCollectionRepository(defaultDispatcher) {
     override fun subjectCollectionCountsFlow(): Flow<SubjectCollectionCounts?> {
-        return (subjectService.subjectCollectionCountsFlow() as Flow<SubjectCollectionCounts?>)
-            .restartOnNewLogin(sessionManager)
-            .retry(2) { e ->
-                RepositoryException.shouldRetry(e)
+        val localCounts = combine(
+            subjectCollectionDao.countCollected(UnifiedCollectionType.WISH),
+            subjectCollectionDao.countCollected(UnifiedCollectionType.DOING),
+            subjectCollectionDao.countCollected(UnifiedCollectionType.DONE),
+            subjectCollectionDao.countCollected(UnifiedCollectionType.ON_HOLD),
+            subjectCollectionDao.countCollected(UnifiedCollectionType.DROPPED),
+        ) { wish, doing, done, onHold, dropped ->
+            SubjectCollectionCounts(
+                wish = wish,
+                doing = doing,
+                done = done,
+                onHold = onHold,
+                dropped = dropped,
+                total = wish + doing + done + onHold + dropped,
+            )
+        }
+
+        return hasBangumiRecorderConnectionFlow.flatMapLatest { hasBangumiRecorder ->
+            if (hasBangumiRecorder) {
+                localCounts
+            } else {
+                (subjectService.subjectCollectionCountsFlow() as Flow<SubjectCollectionCounts?>)
+                    .restartOnNewLogin(sessionManager)
+                    .retry(2) { e ->
+                        RepositoryException.shouldRetry(e)
+                    }
+                    .catch {
+                        logger.error("Failed to get subject collection counts", it)
+                        emit(null)
+                    }
             }
-            .catch {
-                logger.error("Failed to get subject collection counts", it)
-                emit(null)
-            }
-            .flowOn(defaultDispatcher)
-//        return combine(
-//            subjectCollectionDao.countCollected(UnifiedCollectionType.WISH),
-//            subjectCollectionDao.countCollected(UnifiedCollectionType.DOING),
-//            subjectCollectionDao.countCollected(UnifiedCollectionType.DONE),
-//            subjectCollectionDao.countCollected(UnifiedCollectionType.ON_HOLD),
-//            subjectCollectionDao.countCollected(UnifiedCollectionType.DROPPED),
-//        ) { wish, doing, done, onHold, dropped ->
-//            SubjectCollectionCounts(
-//                wish = wish,
-//                doing = doing,
-//                done = done,
-//                onHold = onHold,
-//                dropped = dropped,
-//                total = wish + doing + done + onHold + dropped,
-//            )
-//        }
+        }.flowOn(defaultDispatcher)
     }
 
     private fun SubjectCollectionEntity.isExpired(): Boolean {
@@ -256,7 +264,7 @@ class SubjectCollectionRepositoryImpl(
                 }
 
                 // 如果没有缓存, 则 fetch 然后插入 subject 缓存
-                if (existing == null || existing.isExpired()) {
+                if ((existing == null || existing.isExpired()) && !hasBangumiRecorderConnectionFlow.first()) {
                     val subject = subjectService.getSubjectCollection(subjectId)
                     val lastFetched = currentTimeMillis()
                     val subjectEntity = subject?.toEntity(
@@ -365,13 +373,13 @@ class SubjectCollectionRepositoryImpl(
         query: CollectionsFilterQuery,
         pagingConfig: PagingConfig,
     ): Flow<PagingData<SubjectCollectionInfo>> =
-        combine(getEpisodeTypeFiltersUseCase(), nsfwModeSettingsFlow) { epTypes, nsfwModeSettings ->
-            epTypes to nsfwModeSettings
-        }.restartOnNewLogin(sessionManager).flatMapLatest { (epTypes, nsfwModeSettings) ->
+        combine(getEpisodeTypeFiltersUseCase(), nsfwModeSettingsFlow, hasBangumiRecorderConnectionFlow) { epTypes, nsfwModeSettings, hasBangumiRecorder ->
+            Triple(epTypes, nsfwModeSettings, hasBangumiRecorder)
+        }.restartOnNewLogin(sessionManager).flatMapLatest { (epTypes, nsfwModeSettings, hasBangumiRecorder) ->
             Pager(
                 config = pagingConfig,
                 initialKey = 0,
-                remoteMediator = SubjectCollectionRemoteMediator(query),
+                remoteMediator = if (hasBangumiRecorder) null else SubjectCollectionRemoteMediator(query),
                 pagingSourceFactory = {
                     subjectCollectionDao.filterByCollectionTypePaging(
                         query.type,

@@ -201,6 +201,21 @@ private fun KoinApplication.otherModules(getContext: () -> Context, coroutineSco
     }
     single<AniApiProvider> { AniApiProvider(get<HttpClientProvider>().get(useAniToken = true)) }
     single<TokenRepository> { TokenRepository(getContext().dataStores.tokenStore) }
+    single { me.him188.ani.app.data.repository.br.BangumiRecorderRepository(getContext().dataStores.bangumiRecorderStore) }
+    single {
+        me.him188.ani.app.data.repository.br.BangumiRecorderClient(
+            get<HttpClientProvider>().get(userAgent = ScopedHttpClientUserAgent.ANI),
+        )
+    }
+    single {
+        me.him188.ani.app.data.repository.br.BangumiRecorderSyncService(
+            repository = get(),
+            client = get(),
+            subjectCollectionDao = database.subjectCollection(),
+            episodeCollectionDao = database.episodeCollection(),
+            episodePlayHistoryRepository = get(),
+        )
+    }
     single<EpisodePreferencesRepository> {
         EpisodePreferencesRepositoryImpl(
             getContext().dataStores.preferredAllianceStore,
@@ -232,6 +247,8 @@ private fun KoinApplication.otherModules(getContext: () -> Context, coroutineSco
             sessionManager = get(),
             nsfwModeSettingsFlow = settingsRepository.uiSettings.flow.map { it.searchSettings.nsfwMode },
             getEpisodeTypeFiltersUseCase = get(),
+            hasBangumiRecorderConnectionFlow = get<me.him188.ani.app.data.repository.br.BangumiRecorderRepository>()
+                .activeConnection.map { it != null },
         )
     }
     single<FollowedSubjectsRepository> {

@@ -45,6 +45,7 @@ import org.jetbrains.compose.resources.*
 internal fun ThirdPartyLoginMethods(
     onBangumiClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onBangumiRecorderClick: () -> Unit = {},
 ) {
     Column(modifier) {
         TextDivider(
@@ -61,6 +62,16 @@ internal fun ThirdPartyLoginMethods(
             Image(Icons.Default.BangumiNext, null, Modifier.size(ButtonDefaults.IconSize))
             Spacer(Modifier.width(ButtonDefaults.IconSpacing))
             Text("Bangumi")
+        }
+
+        FilledTonalButton(
+            onBangumiRecorderClick,
+            Modifier.fillMaxWidth().padding(top = 8.dp),
+            contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
+        ) {
+            Image(Icons.Default.BangumiNext, null, Modifier.size(ButtonDefaults.IconSize))
+            Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+            Text("BR 自托管登录")
         }
     }
 }

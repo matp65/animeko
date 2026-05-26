@@ -36,6 +36,7 @@ import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.Science
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.SettingsApplications
@@ -148,6 +149,7 @@ import me.him188.ani.app.ui.settings.tabs.media.PikPakAcceleratorGroup
 import me.him188.ani.app.ui.settings.tabs.media.source.MediaSourceGroup
 import me.him188.ani.app.ui.settings.tabs.media.source.MediaSourceSubscriptionGroup
 import me.him188.ani.app.ui.settings.tabs.network.ConfigureProxyGroup
+import me.him188.ani.app.ui.settings.tabs.network.BangumiRecorderSettingsGroup
 import me.him188.ani.app.ui.settings.tabs.network.ServerSelectionGroup
 import me.him188.ani.app.ui.settings.tabs.theme.ThemeGroup
 import me.him188.ani.utils.platform.hasScrollingBug
@@ -242,6 +244,7 @@ fun SettingsScreen(
 
             Title(stringResource(Lang.settings_category_network_storage))
             Item(SettingsTab.SERVER)
+            Item(SettingsTab.BANGUMI_RECORDER)
             Item(SettingsTab.PROXY)
             Item(SettingsTab.BT)
 //            Item(SettingsTab.CACHE)
@@ -334,6 +337,16 @@ fun SettingsScreen(
 
                             SettingsTab.MEDIA_SELECTOR -> MediaSelectionGroup(vm.mediaSelectionGroupState)
                             SettingsTab.SERVER -> ServerSelectionGroup(vm.danmakuSettingsState, vm.danmakuServerTesters)
+                            SettingsTab.BANGUMI_RECORDER -> BangumiRecorderSettingsGroup(
+                                save = vm.bangumiRecorderSave.value,
+                                busy = vm.bangumiRecorderBusy,
+                                message = vm.bangumiRecorderMessage,
+                                onAddApiToken = vm::addBangumiRecorderApiToken,
+                                onAddJwt = vm::addBangumiRecorderJwt,
+                                onActivate = vm::activateBangumiRecorder,
+                                onRemove = vm::removeBangumiRecorder,
+                                onSync = vm::syncBangumiRecorder,
+                            )
                             SettingsTab.PROXY -> ConfigureProxyGroup(
                                 state = vm.configureProxyState,
                                 onStartProxyTestLoop = { vm.startProxyTesterLoop() },
@@ -729,6 +742,7 @@ private fun getIcon(tab: SettingsTab): ImageVector {
         SettingsTab.MEDIA_SOURCE -> Icons.Outlined.Subscriptions
         SettingsTab.MEDIA_SELECTOR -> Icons.Outlined.FilterList
         SettingsTab.SERVER -> Icons.Outlined.Public
+        SettingsTab.BANGUMI_RECORDER -> Icons.Outlined.Sync
         SettingsTab.PROXY -> Icons.Outlined.VpnKey
         SettingsTab.BT -> Icons.Filled.P2p
 //        SettingsTab.CACHE -> Icons.Rounded.Download // Icons.Outlined.Download 太 sharp 了
@@ -751,6 +765,7 @@ private fun getName(tab: SettingsTab): String {
         SettingsTab.MEDIA_SOURCE -> stringResource(Lang.settings_tab_media_source)
         SettingsTab.MEDIA_SELECTOR -> stringResource(Lang.settings_tab_media_selector)
         SettingsTab.SERVER -> stringResource(Lang.settings_tab_danmaku)
+        SettingsTab.BANGUMI_RECORDER -> "Bangumi-Recorder"
         SettingsTab.PROXY -> stringResource(Lang.settings_tab_proxy)
         SettingsTab.BT -> stringResource(Lang.settings_tab_bt)
 //        SettingsTab.CACHE -> stringResource(Lang.settings_tab_cache)

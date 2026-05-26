@@ -212,6 +212,12 @@ interface SubjectCollectionDao {
     @Query("""SELECT * FROM subject_collection WHERE subjectId = :subjectId""")
     fun findById(subjectId: Int): Flow<SubjectCollectionEntity?>
 
+    @Query("""SELECT * FROM subject_collection WHERE subjectId = :subjectId""")
+    suspend fun findByIdSync(subjectId: Int): SubjectCollectionEntity?
+
+    @Query("""SELECT * FROM subject_collection WHERE collectionType IS NOT NULL AND collectionType != 'NOT_COLLECTED'""")
+    suspend fun allCollectedSync(): List<SubjectCollectionEntity>
+
     @Query("""SELECT * FROM subject_collection WHERE subjectId IN (:subjectIds)""")
     fun filterByIds(subjectIds: IntArray): Flow<List<SubjectCollectionEntity>>
 

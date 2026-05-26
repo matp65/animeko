@@ -108,6 +108,7 @@ internal fun EmailLoginScreenLayout(
                     ThirdPartyLoginMethods(
                         onBangumiLoginClick,
                         Modifier.heightIn(min = 180.dp).wrapContentHeight(align = Alignment.Top),
+                        onBangumiRecorderClick = onNavigateSettings,
                     )
                 }
             }

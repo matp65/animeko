@@ -167,6 +167,7 @@ enum class SettingsTab {
     MEDIA_SOURCE,
     MEDIA_SELECTOR,
     SERVER,
+    BANGUMI_RECORDER,
 
     PROXY,
     BT,

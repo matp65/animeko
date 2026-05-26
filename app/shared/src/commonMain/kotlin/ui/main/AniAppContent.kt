@@ -193,7 +193,7 @@ private fun AniAppContentImpl(
                     aniNavigator.navigateBangumiAuthorize()
                 },
                 onNavigateSettings = {
-                    aniNavigator.navigateSettings()
+                    aniNavigator.navigateSettings(SettingsTab.BANGUMI_RECORDER)
                 },
                 onNavigateBack = {
                     aniNavigator.popBackStack(NavRoutes.EmailLoginStart, true)
@@ -215,7 +215,7 @@ private fun AniAppContentImpl(
                     aniNavigator.navigateBangumiAuthorize()
                 },
                 onNavigateSettings = {
-                    aniNavigator.navigateSettings()
+                    aniNavigator.navigateSettings(SettingsTab.BANGUMI_RECORDER)
                 },
                 onNavigateBack = {
                     aniNavigator.popBackStack(NavRoutes.EmailLoginVerify, true)

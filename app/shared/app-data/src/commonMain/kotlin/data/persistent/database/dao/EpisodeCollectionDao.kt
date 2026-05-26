@@ -129,6 +129,15 @@ interface EpisodeCollectionDao {
 
     @Query(
         """
+        SELECT * FROM episode_collection
+        WHERE subjectId = :subjectId
+        ORDER BY sortNumber ASC, sort ASC
+        """,
+    )
+    suspend fun filterBySubjectIdSync(subjectId: Int): List<EpisodeCollectionEntity>
+
+    @Query(
+        """
         SELECT episodeId FROM episode_collection
         WHERE subjectId = :subjectId
         ORDER BY sortNumber ASC, sort ASC
@@ -170,6 +179,9 @@ interface EpisodeCollectionDao {
 
     @Query("""select * from episode_collection ORDER BY sortNumber ASC, sort ASC""")
     fun all(): Flow<List<EpisodeCollectionEntity>>
+
+    @Query("""select * from episode_collection ORDER BY sortNumber ASC, sort ASC""")
+    suspend fun allSync(): List<EpisodeCollectionEntity>
 
 
     @Query(

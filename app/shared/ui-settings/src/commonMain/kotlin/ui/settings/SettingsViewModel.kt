@@ -11,6 +11,7 @@ package me.him188.ani.app.ui.settings
 
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import io.ktor.client.request.get
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
@@ -43,6 +44,13 @@ import me.him188.ani.app.data.models.preference.UpdateSettings
 import me.him188.ani.app.data.models.preference.VideoResolverSettings
 import me.him188.ani.app.data.models.preference.VideoScaffoldConfig
 import me.him188.ani.app.data.network.danmaku.AniBangumiSeverBaseUrls
+import me.him188.ani.app.data.repository.br.BangumiRecorderAuth
+import me.him188.ani.app.data.repository.br.BangumiRecorderClient
+import me.him188.ani.app.data.repository.br.BangumiRecorderConnection
+import me.him188.ani.app.data.repository.br.BangumiRecorderRepository
+import me.him188.ani.app.data.repository.br.BangumiRecorderSave
+import me.him188.ani.app.data.repository.br.BangumiRecorderSyncResult
+import me.him188.ani.app.data.repository.br.BangumiRecorderSyncService
 import me.him188.ani.app.data.repository.media.MediaSourceInstanceRepository
 import me.him188.ani.app.data.repository.media.MediaSourceSubscriptionRepository
 import me.him188.ani.app.data.repository.player.DanmakuRegexFilterRepository
@@ -62,6 +70,7 @@ import me.him188.ani.app.domain.settings.ServiceConnectionTesters
 import me.him188.ani.app.platform.PermissionManager
 import me.him188.ani.app.platform.currentAniBuildConfig
 import me.him188.ani.app.ui.foundation.launchInBackground
+import me.him188.ani.app.ui.foundation.produceState
 import me.him188.ani.app.ui.settings.danmaku.DanmakuRegexFilterState
 import me.him188.ani.app.ui.settings.framework.AbstractSettingsViewModel
 import me.him188.ani.app.ui.settings.framework.ConnectionTestResult
@@ -96,6 +105,8 @@ import me.him188.ani.utils.coroutines.IO_
 import me.him188.ani.utils.coroutines.SingleTaskExecutor
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
 
 class SettingsViewModel : AbstractSettingsViewModel(), KoinComponent {
     private val settingsRepository: SettingsRepository by inject()
@@ -110,6 +121,9 @@ class SettingsViewModel : AbstractSettingsViewModel(), KoinComponent {
     private val mediaSourceCodecManager: MediaSourceCodecManager by inject()
     private val clientProvider: HttpClientProvider by inject()
     private val tokenRepository: TokenRepository by inject()
+    private val bangumiRecorderRepository: BangumiRecorderRepository by inject()
+    private val bangumiRecorderClient: BangumiRecorderClient by inject()
+    private val bangumiRecorderSyncService: BangumiRecorderSyncService by inject()
 
     private val proxyProvider = ProxySettingsFlowProxyProvider(settingsRepository.proxySettings.flow, backgroundScope)
 
@@ -200,6 +214,76 @@ class SettingsViewModel : AbstractSettingsViewModel(), KoinComponent {
     val debugSettingsState = settingsRepository.debugSettings.stateInBackground(DebugSettings(_placeHolder = -1))
     val isInDebugMode by derivedStateOf {
         debugSettingsState.value.enabled
+    }
+
+    val bangumiRecorderSave = bangumiRecorderRepository.save.produceState(BangumiRecorderSave.Initial, backgroundScope)
+
+    var bangumiRecorderBusy by androidx.compose.runtime.mutableStateOf(false)
+        private set
+
+    var bangumiRecorderMessage by androidx.compose.runtime.mutableStateOf<String?>(null)
+        private set
+
+    fun addBangumiRecorderApiToken(serverUrl: String, token: String) {
+        launchBangumiRecorderAction {
+            val connection = BangumiRecorderConnection(
+                id = serverUrl.trimEnd('/'),
+                name = serverUrl.trimEnd('/'),
+                serverUrl = serverUrl.trimEnd('/'),
+                auth = BangumiRecorderAuth.ApiToken(token),
+            )
+            bangumiRecorderRepository.upsert(connection)
+            bangumiRecorderSyncService.sync(connection)
+        }
+    }
+
+    fun addBangumiRecorderJwt(serverUrl: String, username: String, password: String) {
+        launchBangumiRecorderAction {
+            val normalizedUrl = serverUrl.trimEnd('/')
+            val jwt = bangumiRecorderClient.login(normalizedUrl, username, password)
+            val apiToken = bangumiRecorderClient.createApiToken(normalizedUrl, jwt)
+            val connection = BangumiRecorderConnection(
+                id = normalizedUrl,
+                name = normalizedUrl,
+                serverUrl = normalizedUrl,
+                auth = BangumiRecorderAuth.Jwt(
+                    username = username,
+                    password = password,
+                    token = jwt,
+                    apiToken = apiToken,
+                    expiresAt = Clock.System.now().plus(7.days).toEpochMilliseconds(),
+                ),
+            )
+            bangumiRecorderRepository.upsert(connection)
+            bangumiRecorderSyncService.sync(connection)
+        }
+    }
+
+    fun removeBangumiRecorder(id: String) {
+        launchBangumiRecorderAction { bangumiRecorderRepository.remove(id) }
+    }
+
+    fun activateBangumiRecorder(id: String) {
+        launchBangumiRecorderAction { bangumiRecorderRepository.setActive(id) }
+    }
+
+    fun syncBangumiRecorder() {
+        launchBangumiRecorderAction { bangumiRecorderSyncService.syncActive() }
+    }
+
+    private fun launchBangumiRecorderAction(block: suspend () -> Any?) {
+        launchInBackground {
+            bangumiRecorderBusy = true
+            bangumiRecorderMessage = null
+            try {
+                val result = block()
+                bangumiRecorderMessage = (result as? BangumiRecorderSyncResult)?.message ?: "操作完成"
+            } catch (e: Throwable) {
+                bangumiRecorderMessage = e.message ?: "Bangumi-Recorder 操作失败"
+            } finally {
+                bangumiRecorderBusy = false
+            }
+        }
     }
 
     // region ConfigureProxy
