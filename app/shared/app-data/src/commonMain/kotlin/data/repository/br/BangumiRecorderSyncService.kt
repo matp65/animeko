@@ -161,12 +161,12 @@ class BangumiRecorderSyncService(
     ): String? {
         val maxDoneOrdinal = episodes.asSequence()
             .filter { it.selfCollectionType == UnifiedCollectionType.DONE }
-            .mapNotNull { it.sortNumber.toInt().takeIf { ordinal -> ordinal > 0 } }
+            .mapNotNull { it.epOrdinal() }
             .maxOrNull()
             ?: 0
         val maxProgressOrdinal = episodes.asSequence()
             .filter { progressSecondsByEpisodeId.containsKey(it.episodeId) }
-            .mapNotNull { it.sortNumber.toInt().takeIf { ordinal -> ordinal > 0 } }
+            .mapNotNull { it.epOrdinal() }
             .maxOrNull()
             ?: 0
         val currentOrdinal = maxOf(maxDoneOrdinal, maxProgressOrdinal)
@@ -204,6 +204,11 @@ private fun Int.toProgressTime(): String {
     val minutes = this / 60
     val seconds = this % 60
     return "$minutes:${seconds.toString().padStart(2, '0')}"
+}
+
+private fun EpisodeCollectionEntity.epOrdinal(): Int? {
+    return ep?.number?.toInt()?.takeIf { it > 0 }
+        ?: sortNumber.toInt().takeIf { it > 0 }
 }
 
 private fun SyncResponseRecord.toSyncRequestRecord(): SyncRequestRecord {

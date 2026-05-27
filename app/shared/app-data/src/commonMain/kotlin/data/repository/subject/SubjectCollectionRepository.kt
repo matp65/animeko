@@ -70,6 +70,7 @@ import me.him188.ani.app.data.persistent.database.dao.SubjectRelationsDao
 import me.him188.ani.app.data.persistent.database.dao.deleteAll
 import me.him188.ani.app.data.persistent.database.dao.filterMostRecentUpdated
 import me.him188.ani.app.data.repository.Repository
+import me.him188.ani.app.data.repository.RepositoryAuthorizationException
 import me.him188.ani.app.data.repository.RepositoryException
 import me.him188.ani.app.data.repository.episode.AnimeScheduleRepository
 import me.him188.ani.app.data.repository.episode.EpisodeCollectionRepository
@@ -552,14 +553,24 @@ class SubjectCollectionRepositoryImpl(
         type: UnifiedCollectionType?,
     ) {
         return withContext(defaultDispatcher) {
-            sessionManager.checkAccessAniApiNow()
-            if (type == null || type == UnifiedCollectionType.NOT_COLLECTED) {
-                deleteSubjectCollection(subjectId)
-            } else {
-                patchSubjectCollection(
-                    subjectId,
-                    AniUpdateSubjectCollectionRequest(collectionType = type.toAniSubjectCollectionType()),
-                )
+            val isBrOnly = hasBangumiRecorderConnectionFlow.first()
+            try {
+                sessionManager.checkAccessAniApiNow()
+                if (type == null || type == UnifiedCollectionType.NOT_COLLECTED) {
+                    deleteSubjectCollection(subjectId)
+                } else {
+                    patchSubjectCollection(
+                        subjectId,
+                        AniUpdateSubjectCollectionRequest(collectionType = type.toAniSubjectCollectionType()),
+                    )
+                }
+            } catch (e: RepositoryAuthorizationException) {
+                if (!isBrOnly) throw e
+                if (type == null || type == UnifiedCollectionType.NOT_COLLECTED) {
+                    subjectCollectionDao.delete(subjectId)
+                } else {
+                    subjectCollectionDao.updateType(subjectId, type)
+                }
             }
         }
     }
